@@ -9,6 +9,7 @@
 // ==/UserScript==
 
 (function () {
+    
     'use strict';
 
     $('a.bt-saiba.refresh-box').click();
