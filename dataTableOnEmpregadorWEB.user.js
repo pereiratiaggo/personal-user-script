@@ -8,6 +8,7 @@
 // @match        https://sd.mte.gov.br/*
 // @match        http://sd.maisemprego.mte.gov.br/*
 // @match        https://sd.maisemprego.mte.gov.br/*
+// @exclude      https://sd.maisemprego.mte.gov.br/sdweb/empregadorweb/restritoSemCert/home.jsf
 // @grant        none
 // @require      https://code.jquery.com/jquery-3.5.1.js
 // @require      http://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js
