@@ -20,8 +20,8 @@
 
     setTimeout(() => {
         inputs[3].click();
-        inputs[4].value = "" //CNPJ "00.000.000/0000-00"
-        inputs[6].value = "" //email email@email.com
+        inputs[4].value = ""; //CNPJ "00.000.000/0000-00"
+        inputs[6].value = ""; //email email@email.com
         inputs[7].value = inputs[6].value;
     }, 1000);
 })();
