@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Lichess Floating Clock (auto restart on new puzzle)
+// @name         Lichess Floating Clock (auto restart on new puzzle - sem nome do exercício)
 // @namespace    https://lichess.org/
-// @version      3.3
-// @description  Cronômetro estável com histórico, pausa, auto reset, nome do exercício e quebra-cabeça (reinicia ao novo puzzle)
+// @version      3.5
+// @description  Cronômetro estável com histórico, pausa, auto reset e nome do quebra-cabeça (reinicia ao novo puzzle)
 // @match        https://lichess.org/*
 // @grant        none
 // ==/UserScript==
@@ -21,7 +21,7 @@
         Object.assign(container.style, {
             position: "fixed",
             bottom: "20px",
-            right: "20px",
+            left: "20px", // canto inferior esquerdo
             background: "rgba(0,0,0,0.85)",
             color: "#0f0",
             fontSize: "18px",
@@ -134,13 +134,6 @@
             return now.toLocaleTimeString("pt-BR", { hour12: false });
         }
 
-        function getExerciseName() {
-            return (
-                document.querySelector(".ps__chapter.active h3")?.innerText ||
-                "Desconhecido"
-            );
-        }
-
         function getPuzzleTitle() {
             const meta = document.querySelector(".puzzle__side__metas p");
             if (!meta) return "Quebra-cabeça desconhecido";
@@ -181,7 +174,6 @@
             if (save && seconds > 0) {
                 const entry = {
                     puzzle: getPuzzleTitle(),
-                    exercise: getExerciseName(),
                     time: formatTime(seconds),
                     stamp: getTimeStamp()
                 };
@@ -220,7 +212,7 @@
             historyDiv.innerHTML = "";
             history.forEach((item, i) => {
                 const div = document.createElement("div");
-                div.textContent = `${i + 1}. ${item.puzzle} — ${item.exercise} — ${item.stamp} — ${item.time}`;
+                div.textContent = `${i + 1}. ${item.puzzle} — ${item.stamp} — ${item.time}`;
                 historyDiv.appendChild(div);
             });
         }
@@ -265,24 +257,18 @@
 
         document.addEventListener("mouseup", () => dragging = false);
 
-        // checagem leve (sem travar)
+        // checagem leve
         setInterval(() => {
             const retryVisible = !!document.querySelector('.analyse__underboard a.feedback.loss');
             const successVisible = !!document.querySelector('.analyse__underboard a.feedback.win');
             const voteVisible = !!document.querySelector('.vote.vote-up');
 
-            // parar e salvar no sucesso ou voto
             if (successVisible || voteVisible) stopClock(true);
-
-            // resetar quando retry aparece
             if (retryVisible) resetClock();
-
-            // detectar novo puzzle (vote desaparece)
             if (!voteVisible && lastVoteVisible) {
                 resetClock();
                 startClock();
             }
-
             lastVoteVisible = voteVisible;
         }, 1000);
 
@@ -290,7 +276,6 @@
         startClock();
     }
 
-    // inicia quando o puzzle estiver carregado
     const checkInterval = setInterval(() => {
         if (document.body && document.querySelector(".puzzle__side__metas")) {
             clearInterval(checkInterval);
