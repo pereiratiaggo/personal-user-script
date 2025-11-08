@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name         Lichess Floating Clock (Histórico com limpeza)
+// @name         Lichess Floating Clock (full auto + puzzle title)
 // @namespace    https://lichess.org/
-// @version      2.1
-// @description  Cronômetro movível com histórico, nome do exercício e botão de limpar
+// @version      3.0
+// @description  Cronômetro movível com histórico, pausa, auto reset, nome do exercício e quebra-cabeça
 // @match        https://lichess.org/*
 // @grant        none
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
 
     function createClock() {
@@ -33,7 +33,6 @@
             boxShadow: "0 0 8px rgba(0,0,0,0.5)"
         });
 
-        // tempos
         const currentTime = document.createElement("div");
         currentTime.id = "currentTime";
         currentTime.textContent = "Atual: 00:00";
@@ -48,9 +47,8 @@
         container.appendChild(currentTime);
         container.appendChild(lastTime);
 
-        // histórico oculto
         const historyDiv = document.createElement("div");
-        historyDiv.id = "historyList";
+        historyDiv.id = "historyDiv";
         historyDiv.style.display = "none";
         historyDiv.style.marginTop = "5px";
         historyDiv.style.fontSize = "15px";
@@ -61,7 +59,6 @@
         historyDiv.style.paddingTop = "5px";
         container.appendChild(historyDiv);
 
-        // botões principais
         const buttonsDiv = document.createElement("div");
         buttonsDiv.style.display = "flex";
         buttonsDiv.style.gap = "10px";
@@ -70,39 +67,9 @@
         container.appendChild(buttonsDiv);
 
         const btnStart = document.createElement("button");
-        btnStart.textContent = "▶️ Iniciar";
-        styleButton(btnStart, "#0f0");
-
         const btnPause = document.createElement("button");
-        btnPause.textContent = "⏸ Pausar";
-        styleButton(btnPause, "#ff0");
-        btnPause.style.display = "none";
-
         const btnStop = document.createElement("button");
-        btnStop.textContent = "⏹ Parar";
-        styleButton(btnStop, "#f00");
-        btnStop.style.display = "none";
-
-        buttonsDiv.appendChild(btnStart);
-        buttonsDiv.appendChild(btnPause);
-        buttonsDiv.appendChild(btnStop);
-
-        // botão limpar histórico
         const btnClear = document.createElement("button");
-        btnClear.textContent = "🧹 Limpar histórico";
-        styleButton(btnClear, "#555");
-        btnClear.style.marginTop = "10px";
-        btnClear.style.width = "100%";
-        container.appendChild(btnClear);
-
-        document.body.appendChild(container);
-
-        // variáveis
-        let timer = null;
-        let seconds = 0;
-        let history = loadHistory();
-        let wasRetryVisible = false;
-        let wasSuccessVisible = false;
 
         function styleButton(btn, color) {
             Object.assign(btn.style, {
@@ -118,6 +85,42 @@
             });
         }
 
+        btnStart.textContent = "▶️ Iniciar";
+        styleButton(btnStart, "#0f0");
+        btnPause.textContent = "⏸ Pausar";
+        styleButton(btnPause, "#ff0");
+        btnPause.style.display = "none";
+        btnStop.textContent = "⏹ Parar";
+        styleButton(btnStop, "#f00");
+        btnStop.style.display = "none";
+        btnClear.textContent = "🧹 Limpar histórico";
+        Object.assign(btnClear.style, {
+            width: "100%",
+            background: "#555",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            padding: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            marginTop: "10px"
+        });
+
+        buttonsDiv.appendChild(btnStart);
+        buttonsDiv.appendChild(btnPause);
+        buttonsDiv.appendChild(btnStop);
+        container.appendChild(btnClear);
+
+        document.body.appendChild(container);
+
+        // variáveis
+        let timer = null;
+        let seconds = 0;
+        let running = false;
+        let wasRetryVisible = false;
+        let wasSuccessVisible = false;
+        let history = loadHistory();
+
         function formatTime(sec) {
             const min = String(Math.floor(sec / 60)).padStart(2, "0");
             const s = String(sec % 60).padStart(2, "0");
@@ -132,9 +135,16 @@
         function getExerciseName() {
             return (
                 document.querySelector(".ps__chapter.active h3")?.innerText ||
-                document.querySelector("h1")?.innerText ||
                 "Desconhecido"
             );
+        }
+
+        function getPuzzleTitle() {
+            const meta = document.querySelector(".puzzle__side__metas p");
+            if (!meta) return "Quebra-cabeça desconhecido";
+            const prefix = meta.childNodes[0]?.textContent?.trim() || "Quebra-cabeça";
+            const id = meta.querySelector("a")?.innerText || "#???";
+            return `${prefix} ${id}`;
         }
 
         function updateClock() {
@@ -143,8 +153,10 @@
         }
 
         function startClock() {
-            if (!timer) {
+            if (!running) {
+                seconds = 0;
                 timer = setInterval(updateClock, 1000);
+                running = true;
                 btnStart.style.display = "none";
                 btnPause.style.display = "block";
                 btnStop.style.display = "block";
@@ -152,13 +164,12 @@
         }
 
         function pauseClock() {
-            if (timer) {
+            if (running) {
                 clearInterval(timer);
-                timer = null;
+                running = false;
+                btnStart.textContent = "▶️ Retomar";
                 btnStart.style.display = "block";
                 btnPause.style.display = "none";
-                btnStop.style.display = "block";
-                btnStart.textContent = "▶️ Retomar";
             }
         }
 
@@ -168,15 +179,18 @@
                 timer = null;
             }
             if (save && seconds > 0) {
-                const time = formatTime(seconds);
-                const stamp = getTimeStamp();
-                const exercise = getExerciseName();
-                addToHistory({ exercise, stamp, time });
-                lastTime.textContent = `Última: ${time}`;
+                const entry = {
+                    puzzle: getPuzzleTitle(),
+                    exercise: getExerciseName(),
+                    time: formatTime(seconds),
+                    stamp: getTimeStamp()
+                };
+                addToHistory(entry);
+                lastTime.textContent = `Última: ${entry.time}`;
             }
             seconds = 0;
+            running = false;
             currentTime.textContent = "Atual: 00:00";
-
             btnStart.textContent = "▶️ Iniciar";
             btnStart.style.display = "block";
             btnPause.style.display = "none";
@@ -195,10 +209,8 @@
         }
 
         function loadHistory() {
-            const saved = localStorage.getItem("lichess_history");
-            if (!saved) return [];
             try {
-                return JSON.parse(saved);
+                return JSON.parse(localStorage.getItem("lichess_history")) || [];
             } catch {
                 return [];
             }
@@ -208,7 +220,7 @@
             historyDiv.innerHTML = "";
             history.forEach((item, i) => {
                 const div = document.createElement("div");
-                div.textContent = `${i + 1}. ${item.exercise} — ${item.stamp} — ${item.time}`;
+                div.textContent = `${i + 1}. ${item.puzzle} — ${item.exercise} — ${item.stamp} — ${item.time}`;
                 historyDiv.appendChild(div);
             });
         }
@@ -222,12 +234,12 @@
             historyDiv.style.display = historyVisible ? "block" : "none";
         });
 
-        // eventos dos botões
+        // eventos botões
         btnStart.addEventListener("click", startClock);
         btnPause.addEventListener("click", pauseClock);
         btnStop.addEventListener("click", () => stopClock(true));
         btnClear.addEventListener("click", () => {
-            if (confirm("Apagar todo o histórico de tempos?")) {
+            if (confirm("Apagar todo o histórico?")) {
                 history = [];
                 localStorage.removeItem("lichess_history");
                 renderHistory();
@@ -253,20 +265,24 @@
 
         document.addEventListener("mouseup", () => dragging = false);
 
-        // observador: erro, sucesso, novo exercício
+        // observador automático
         const observer = new MutationObserver(() => {
             const retry = document.querySelector('.analyse__underboard a.feedback.loss');
             const success = document.querySelector('.analyse__underboard a.feedback.win');
+            const vote = document.querySelector('.vote.vote-up');
             const retryVisible = !!retry;
             const successVisible = !!success;
+            const voteVisible = !!vote;
 
             if (retryVisible && !wasRetryVisible) resetClock();
             if (!retryVisible && wasRetryVisible) startClock();
             if (successVisible && !wasSuccessVisible) stopClock(true);
+            if (voteVisible) stopClock(true);
 
             wasRetryVisible = retryVisible;
             wasSuccessVisible = successVisible;
         });
+
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
