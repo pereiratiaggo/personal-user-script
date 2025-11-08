@@ -1,14 +1,17 @@
 // ==UserScript==
-// @name         Lichess Floating Clock (full auto + puzzle title)
+// @name         Lichess Floating Clock (auto restart on new puzzle)
 // @namespace    https://lichess.org/
-// @version      3.0
-// @description  Cronômetro movível com histórico, pausa, auto reset, nome do exercício e quebra-cabeça
+// @version      3.3
+// @description  Cronômetro estável com histórico, pausa, auto reset, nome do exercício e quebra-cabeça (reinicia ao novo puzzle)
 // @match        https://lichess.org/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    if (window.hasRunClock) return;
+    window.hasRunClock = true;
 
     function createClock() {
         if (document.getElementById("floatingClockContainer")) return;
@@ -117,9 +120,8 @@
         let timer = null;
         let seconds = 0;
         let running = false;
-        let wasRetryVisible = false;
-        let wasSuccessVisible = false;
         let history = loadHistory();
+        let lastVoteVisible = false;
 
         function formatTime(sec) {
             const min = String(Math.floor(sec / 60)).padStart(2, "0");
@@ -154,7 +156,7 @@
 
         function startClock() {
             if (!running) {
-                seconds = 0;
+                clearInterval(timer);
                 timer = setInterval(updateClock, 1000);
                 running = true;
                 btnStart.style.display = "none";
@@ -174,10 +176,8 @@
         }
 
         function stopClock(save = true) {
-            if (timer) {
-                clearInterval(timer);
-                timer = null;
-            }
+            if (timer) clearInterval(timer);
+            timer = null;
             if (save && seconds > 0) {
                 const entry = {
                     puzzle: getPuzzleTitle(),
@@ -265,31 +265,36 @@
 
         document.addEventListener("mouseup", () => dragging = false);
 
-        // observador automático
-        const observer = new MutationObserver(() => {
-            const retry = document.querySelector('.analyse__underboard a.feedback.loss');
-            const success = document.querySelector('.analyse__underboard a.feedback.win');
-            const vote = document.querySelector('.vote.vote-up');
-            const retryVisible = !!retry;
-            const successVisible = !!success;
-            const voteVisible = !!vote;
+        // checagem leve (sem travar)
+        setInterval(() => {
+            const retryVisible = !!document.querySelector('.analyse__underboard a.feedback.loss');
+            const successVisible = !!document.querySelector('.analyse__underboard a.feedback.win');
+            const voteVisible = !!document.querySelector('.vote.vote-up');
 
-            if (retryVisible && !wasRetryVisible) resetClock();
-            if (!retryVisible && wasRetryVisible) startClock();
-            if (successVisible && !wasSuccessVisible) stopClock(true);
-            if (voteVisible) stopClock(true);
+            // parar e salvar no sucesso ou voto
+            if (successVisible || voteVisible) stopClock(true);
 
-            wasRetryVisible = retryVisible;
-            wasSuccessVisible = successVisible;
-        });
+            // resetar quando retry aparece
+            if (retryVisible) resetClock();
 
-        observer.observe(document.body, { childList: true, subtree: true });
+            // detectar novo puzzle (vote desaparece)
+            if (!voteVisible && lastVoteVisible) {
+                resetClock();
+                startClock();
+            }
+
+            lastVoteVisible = voteVisible;
+        }, 1000);
+
+        // inicia automaticamente
+        startClock();
     }
 
-    const initObserver = new MutationObserver(() => {
-        if (document.body && !document.getElementById("floatingClockContainer")) {
+    // inicia quando o puzzle estiver carregado
+    const checkInterval = setInterval(() => {
+        if (document.body && document.querySelector(".puzzle__side__metas")) {
+            clearInterval(checkInterval);
             createClock();
         }
-    });
-    initObserver.observe(document, { childList: true, subtree: true });
+    }, 500);
 })();
