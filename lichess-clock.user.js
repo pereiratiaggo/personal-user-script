@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Lichess Floating Clock (auto restart on new puzzle - sem nome do exercício)
+// @name         Lichess Floating Clock (auto restart on new puzzle - sem nome do exercício) 08/11/2025
 // @namespace    https://lichess.org/
 // @version      3.5
 // @description  Cronômetro estável com histórico, pausa, auto reset e nome do quebra-cabeça (reinicia ao novo puzzle)
