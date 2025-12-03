@@ -4,6 +4,7 @@
 // @version      2.0
 // @description  Baixa XMLs e PDFs em lote com barra de progresso
 // @match        https://www.nfse.gov.br/EmissorNacional/Notas/Emitidas*
+// @match        https://www.nfse.gov.br/EmissorNacional/Notas/Recebidas*
 // @grant        none
 // ==/UserScript==
 
