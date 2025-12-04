@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Baixar XMLs e PDFs NFS-e (um por vez)
+// @name         Baixar XMLs, PDFs e Copiar Tabela NFS-e
 // @namespace    http://tampermonkey.net/
-// @version      2.0
-// @description  Baixa XMLs e PDFs em lote com barra de progresso
+// @version      4.0
+// @description  Baixa XMLs e PDFs em lote ignorando canceladas e copia tabela para Excel
 // @match        https://www.nfse.gov.br/EmissorNacional/Notas/Emitidas*
 // @match        https://www.nfse.gov.br/EmissorNacional/Notas/Recebidas*
 // @grant        none
@@ -11,13 +11,13 @@
 (function() {
     'use strict';
 
-    function criaBotao(texto, cor) {
+    function criaBotao(texto, cor, dx = 30) {
         const btn = document.createElement("button");
         btn.textContent = texto;
         btn.style = `
             position: fixed;
             bottom: 30px;
-            right: ${texto.includes("PDF") ? "230px" : "30px"};
+            right: ${dx}px;
             z-index: 99999;
             padding: 15px 25px;
             background: ${cor};
@@ -36,13 +36,10 @@
         return btn;
     }
 
-    // Botão XML
-    const btnXML = criaBotao("⬇️ Baixar XMLs", "#28a745");
+    const btnXML   = criaBotao("⬇️ Baixar XMLs", "#28a745", 30);
+    const btnPDF   = criaBotao("⬇️ Baixar PDFs", "#007bff", 230);
+    const btnExcel = criaBotao("📋 Copiar p/ Excel", "#6f42c1", 430);
 
-    // Botão PDF
-    const btnPDF = criaBotao("⬇️ Baixar PDFs", "#007bff");
-
-    // Painel de progresso
     const panel = document.createElement("div");
     panel.style = `
         position: fixed;
@@ -98,8 +95,7 @@
             bar.style.width = Math.round(((i+1) / links.length) * 100) + "%";
 
             baixar(url, nome);
-
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 800));
         }
 
         status.textContent = "✅ Downloads iniciados!";
@@ -115,14 +111,67 @@
         }, 3500);
     }
 
+    // -----------------------
+    // FILTRO PARA IGNORAR CANCELADAS
+    // -----------------------
+
+    function pegaLinks(tipo) {
+        const linhas = [...document.querySelectorAll("table tbody tr")];
+
+        return linhas
+            .filter(l => !l.querySelector('img[src*="tb-cancelada.svg"]'))
+            .map(l => l.querySelector(
+                tipo === "XML"
+                    ? 'a[href*="/Notas/Download/NFSe/"]'
+                    : 'a[href*="/Notas/Download/DANFSe/"]'
+            ))
+            .filter(a => a)
+            .map(a => a.href);
+    }
+
     btnXML.onclick = () => {
-        const links = [...document.querySelectorAll('a[href*="/Notas/Download/NFSe/"]')].map(a => a.href);
+        const links = pegaLinks("XML");
         baixarLista(links, "XML", btnXML);
     };
 
     btnPDF.onclick = () => {
-        const links = [...document.querySelectorAll('a[href*="/Notas/Download/DANFSe/"]')].map(a => a.href);
+        const links = pegaLinks("PDF");
         baixarLista(links, "PDF", btnPDF);
     };
+
+    // -----------------------
+    // COPIAR TABELA PARA EXCEL
+    // -----------------------
+
+    function copiarTabelaExcel() {
+        const tabela = document.querySelector("table");
+        if (!tabela) {
+            alert("Nenhuma tabela encontrada.");
+            return;
+        }
+
+        let linhas = [];
+
+        tabela.querySelectorAll("tr").forEach(tr => {
+            const cols = [...tr.querySelectorAll("th, td")].map(td =>
+                td.innerText.replace(/\s+/g, " ").trim()
+            );
+            linhas.push(cols.join("\t"));
+        });
+
+        const texto = linhas.join("\n");
+
+        navigator.clipboard.writeText(texto).then(() => {
+            btnExcel.textContent = "✔ Copiado!";
+            btnExcel.style.background = "#28a745";
+
+            setTimeout(() => {
+                btnExcel.textContent = "📋 Copiar p/ Excel";
+                btnExcel.style.background = "#6f42c1";
+            }, 2000);
+        });
+    }
+
+    btnExcel.onclick = copiarTabelaExcel;
 
 })();
